@@ -105,8 +105,8 @@ shots: sim test-zx
 	rm -rf $(S)/run && mkdir -p $(S)/run/simdisk/ZX47
 	cp $(T)/demo.tap $(S)/run/simdisk/ZX47/DEMO.TAP
 	cd $(S)/run && ZX47_FILE=/ZX47/DEMO.TAP ../sim WAIT:3500 SNAP:boot 7 ADD 2 DOT+COS 3 ENTER WAIT:800 SNAP:basic \
-	    ADD ADD EXIT WAIT:300 SNAP:menu F3 WAIT:10000 SNAP:demo
-	for n in boot basic menu demo; do $(PYTHON) test/sim/render.py $(S)/run/$$n $(S)/run/$$n.png; done
+	    ADD ADD EXIT WAIT:300 SNAP:menu 8 WAIT:300 SNAP:about EXIT WAIT:200 F3 WAIT:10000 SNAP:demo
+	for n in boot basic menu about demo; do $(PYTHON) test/sim/render.py $(S)/run/$$n $(S)/run/$$n.png; done
 
 clean:
 	-rm -fR $(BUILD_DIR)

@@ -214,9 +214,37 @@ static void fill(void) {
 static int extra = -1;                     /* a key from the serial console (77: the PC sent L) */
 void sim_push_key(int k) { extra = k; }
 static int done(void) { return qpos >= nq && spos >= nscript && sys_current_ms() >= wait_until; }
-int key_empty(void) { if (extra > 0) return 0; fill(); return qpos >= nq; }
-int key_pop(void) { if (extra > 0) { int k = extra; extra = -1; return k; } fill(); return qpos < nq ? queue[qpos++] : -1; }
-void key_pop_all(void) {}
+/* One timeline for both of DMCP's key views, as on the calculator: a scripted key is pressed (an event for
+   key_pop, once) and held for 6 read_key calls, then up for 6. key_pop alone (a menu) takes it as a press. */
+static int cur1, cur2, hold, gap, event, rk;
+static void advance(int from_pop) {
+  if (from_pop) { if (rk) rk--; else gap = 0; }   /* the gap only matters while read_key is in use */
+  if (cur1 || gap) return;
+  fill();
+  if (qpos < nq) { cur1 = queue[qpos]; cur2 = queue2[qpos]; qpos++; hold = 6; event = 1; }
+}
+int key_empty(void) { if (extra > 0) return 0; advance(1); return !event; }
+int key_pop(void) {
+  if (extra > 0) { int k = extra; extra = -1; return k; }
+  int held_by_rk = rk > 0;                   /* the emulator is reading the keys held */
+  advance(1);
+  if (!event) return -1;
+  event = 0;
+  int k = cur1;
+  if (!held_by_rk) { cur1 = cur2 = 0; hold = 0; }   /* nobody holds it (a menu): a press, done */
+  return k;
+}
+void key_pop_all(void) { event = 0; }
+int __sysfn_read_key(int *k1, int *k2) {
+  *k1 = *k2 = 0;
+  rk = 3;
+  if (gap > 0) { gap--; return 0; }
+  advance(0);
+  if (!cur1) { if (done()) { fprintf(stderr, "script done\n"); exit(0); } return 0; }
+  *k1 = cur1; *k2 = cur2;
+  if (--hold <= 0) { cur1 = cur2 = 0; gap = 6; event = 0; }
+  return 1 + (*k2 > 0);
+}
 int create_screenshot(int report_error) {            /* the LCD as it is now, as SCREENS/shotN.pbm in the sim's disk */
   (void)report_error;
   static int n;
@@ -227,17 +255,6 @@ int create_screenshot(int report_error) {            /* the LCD as it is now, as
   return 0;
 }
 
-/* read_key: the scripted keys held for 6 calls, then 6 calls up */
-static int held1, held2, hold, gap;
-int __sysfn_read_key(int *k1, int *k2) {
-  if (hold > 0) { hold--; if (!hold) gap = 6; *k1 = held1; *k2 = held2; return (held1 > 0) + (held2 > 0); }
-  *k1 = *k2 = 0;
-  if (gap > 0) { gap--; return 0; }
-  fill();
-  if (qpos < nq) { held1 = queue[qpos]; held2 = queue2[qpos]; qpos++; hold = 6; *k1 = held1; *k2 = held2; return 1 + (held2 > 0); }
-  if (done()) { fprintf(stderr, "script done\n"); exit(0); }
-  return 0;
-}
 void wait_for_key_press(void) { if (key_empty()) exit(0); key_pop(); }
 void sys_sleep(void) {
   if (done()) { fprintf(stderr, "script done\n"); exit(0); }

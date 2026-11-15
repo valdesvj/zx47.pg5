@@ -43,6 +43,7 @@ is the key with its letter: P = PRINT, J = LOAD, R = RUN, L = LET …
 | F3 F4 F5 F6 | EXTEND MODE, EDIT, GRAPHICS, CAPS LOCK |
 | **`+`** | **the layer: ALPHA → NUM → JOY** (shown in the status line) |
 | **EXIT** | **ZX47's menu** |
+| **SHIFT + `+`** | **a screenshot**: the LCD as a `.bmp` in `/SCREENS` on the calculator's disk (DMCP's own screenshot key works too) |
 
 | Digit block | ALPHA | NUM | JOY |
 |---|---|---|---|

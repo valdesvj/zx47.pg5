@@ -75,9 +75,23 @@ static void cfg_load(void) {
 /* ------------------------------------------------------------------ the frame around the picture */
 static char status_now[96];
 static int emu_ms, scr_ms;                          /* the last second: ms a frame (x10) running, drawing */
+static char note[40];                               /* a short message in the status line ... */
+static uint32_t note_until;                         /* ... until this time */
 
 static void status(int pct) {
   char s[96];
+  if (note[0] && (int32_t)(sys_current_ms() - note_until) < 0) {
+    snprintf(s, sizeof s, "ZX47  %s", note);
+    if (strcmp(s, status_now)) {
+      strcpy(status_now, s);
+      lcd_refresh_wait();
+      lcd_fill_rect(0, 0, LCD_X, SCR_Y - 1, 0);
+      text(4, 2, s, 0);
+      lcd_refresh_lines(0, SCR_Y - 1);
+    }
+    return;
+  }
+  note[0] = 0;
   if (cfg.speed) snprintf(s, sizeof s, "%s %d%% z%d.%d s%d.%d %.20s", LAYER_NAME[cfg.layer], pct, emu_ms / 10, emu_ms % 10,
                          scr_ms / 10, scr_ms % 10, loaded);
   else snprintf(s, sizeof s, "ZX47  %-5s  %.30s", LAYER_NAME[cfg.layer], loaded);
@@ -285,6 +299,15 @@ static void sound(void) {
   if (!tone || d * 16 > tone) { start_buzzer_freq(f * 1000); tone = f; }
 }
 
+/* ------------------------------------------------------------------ screenshot: the LCD as a .bmp in /SCREENS (DMCP) */
+static void screenshot(void) {
+  lcd_refresh_wait();
+  status_now[0] = 0;                                /* the status line as it was in the picture, then the note */
+  int r = create_screenshot(1);
+  strcpy(note, r < 0 ? "screenshot NOT saved" : "screenshot saved in /SCREENS");
+  note_until = sys_current_ms() + 2000;
+}
+
 /* ------------------------------------------------------------------ power, as the DMCP SDK's template */
 static void power_off(void) {                       /* the Spectrum keeps its state while off */
   lcd_refresh_wait();
@@ -331,7 +354,9 @@ void program_main(void) {
 
     int k1, k2;
     read_keys(&k1, &k2);
-    key_pop_all();                                  /* the keys go by read_key; DMCP's queue stays empty */
+    int shot = 0;                                   /* the keys go by read_key; DMCP's queue is emptied, */
+    for (int q = key_pop(); q >= 0; q = key_pop())  /* but its screenshot key is kept */
+      if (q == KEY_SCREENSHOT) shot = 1;
     if (k1 == KEY_EXIT || k2 == KEY_EXIT) {
       if (!menu()) power_off();
       else frame_ui();
@@ -339,7 +364,13 @@ void program_main(void) {
       continue;
     }
     int plus = k1 == KEY_ADD || k2 == KEY_ADD;
-    if (plus && !plus_was) cfg.layer = (cfg.layer + 1) % LAYER_CNT;
+    int shift = k1 == KEY_SHIFT || k2 == KEY_SHIFT;
+    if (plus && !plus_was) {
+      if (shift) shot = 1;                          /* SHIFT + +: a screenshot */
+      else cfg.layer = (cfg.layer + 1) % LAYER_CNT;
+    }
+    if (shot) { screenshot(); next = sys_current_ms(); }
+    if (plus && shift) k1 = k2 = 0;                 /* no CAPS SHIFT to the Spectrum for it */
     plus_was = plus;
     if (plus) { if (k1 == KEY_ADD) k1 = 0; if (k2 == KEY_ADD) k2 = 0; }
 

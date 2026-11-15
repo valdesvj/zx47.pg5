@@ -217,6 +217,15 @@ static int done(void) { return qpos >= nq && spos >= nscript && sys_current_ms()
 int key_empty(void) { if (extra > 0) return 0; fill(); return qpos >= nq; }
 int key_pop(void) { if (extra > 0) { int k = extra; extra = -1; return k; } fill(); return qpos < nq ? queue[qpos++] : -1; }
 void key_pop_all(void) {}
+int create_screenshot(int report_error) {            /* the LCD as it is now, as SCREENS/shotN.pbm in the sim's disk */
+  (void)report_error;
+  static int n;
+  char name[64];
+  system("mkdir -p simdisk/SCREENS");
+  snprintf(name, sizeof name, "simdisk/SCREENS/shot%d", n++);
+  snap(name);
+  return 0;
+}
 
 /* read_key: the scripted keys held for 6 calls, then 6 calls up */
 static int held1, held2, hold, gap;

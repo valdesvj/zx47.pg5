@@ -7,7 +7,8 @@
  *   ink mode     every set pixel is black, whatever its colours (clearer for some games)
  *   invert       swaps black and white in both
  * A line goes to the LCD only when it changed since it was last sent (FPS47: about 0.25 ms a line, so a sprite in
- * a still room costs a few ms, the whole screen about 50 ms). The LCD buffer's layout is learnt at start by setting
+ * a still room costs a few ms, the whole screen about 50 ms). The last band is not waited for: the next frame runs
+ * while the LCD takes it (if DMCP sends it in the background); the wait comes before the buffer is touched again. The LCD buffer's layout is learnt at start by setting
  * single pixels (as FPS47 and NAV47's USB mirror); when each group of 8 pixels lands in one byte, a 256-entry table
  * converts a byte at a time.
  * Copyright (C) 2026 Victor Valdes - GPL-3.0-or-later. */
@@ -114,6 +115,7 @@ static void put_line(int y, const uint8_t *m) {
 
 int screen_render(Zx *x, int mode, int invert) {
   if (!last) return 0;
+  lcd_refresh_wait();                               /* the last frame's lines are out before the buffer changes */
   const uint8_t *mem = x->mem;
   int flash = (x->frames >> 4) & 1, inv = invert ? 0xFF : 0x00;
   int any = 0;
@@ -139,13 +141,14 @@ int screen_render(Zx *x, int mode, int invert) {
   }
   valid = 1;
   if (!any) return 0;
-  /* send the changed bands; bands closer than 6 lines go as one */
+  /* send the changed bands; bands closer than 6 lines go as one; the last one is not waited for */
+  int sent = 0;
   for (int y = 0; y < SCR_H;) {
     if (!dirty[y]) { y++; continue; }
     int s = y, e = y + 1, gap = 0;
     for (int k = e; k < SCR_H && gap < 6; k++) { if (dirty[k]) { e = k + 1; gap = 0; } else gap++; }
+    if (sent++) lcd_refresh_wait();
     lcd_refresh_lines(SCR_Y + s, e - s);
-    lcd_refresh_wait();
     y = e;
   }
   return any;

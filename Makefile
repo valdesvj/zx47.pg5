@@ -82,6 +82,13 @@ test-zx: $(GEN)/rom48.c
 	$(PYTHON) tools/sna2z80.py $(T)/demo.sna $(T)/demo_v3.z80 3
 	$(T)/zxtest
 
+bench: $(GEN)/rom48.c
+	mkdir -p $(BUILD_DIR)/bench
+	printf '10 LET a=0\n20 LET a=a+1: PLOT a/40,a/250: GO TO 20\n' > $(BUILD_DIR)/bench/busy.bas
+	$(PYTHON) tools/mktap.py $(BUILD_DIR)/bench/busy.bas $(BUILD_DIR)/bench/busy.tap BUSY
+	gcc -O2 -Isrc -Ithird_party/z80 -o $(BUILD_DIR)/bench/bench test/bench.c src/zx.c third_party/z80/z80.c $(GEN)/rom48.c
+	$(BUILD_DIR)/bench/bench $(BUILD_DIR)/bench/busy.tap
+
 demo:
 	$(PYTHON) tools/mktap.py test/demo.bas release/ZX47DEMO.TAP ZX47DEMO
 
@@ -106,4 +113,4 @@ clean:
 
 -include $(wildcard $(BUILD_DIR)/.dep/*)
 
-.PHONY: all test test-z80 test-zx demo sim shots clean
+.PHONY: all test test-z80 test-zx bench demo sim shots clean

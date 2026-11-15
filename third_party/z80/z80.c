@@ -1,5 +1,7 @@
 /* ZX47: superzazu/z80 (MIT, see LICENSE), changed for the Spectrum: ports are 16 bits (IN/OUT put B or A on the
- * high byte, as the real Z80), OUTI/OUTD decrement B first, and no stdio (z80_debug_output is left out). */
+ * high byte, as the real Z80), OUTI/OUTD decrement B first, and no stdio (z80_debug_output is left out).
+ * For speed on the calculator: memory straight from z->mem (no call per byte), the flags whole bytes, parity
+ * folded. */
 #include <stddef.h>
 #include "z80.h"
 
@@ -49,21 +51,22 @@ static const uint8_t cyc_ddfd[256] = {4, 4, 4, 4, 4, 4, 4, 4, 4, 15, 4, 4, 4, 4,
 #define GET_BIT(n, val) (((val) >> (n)) & 1)
 
 static inline uint8_t rb(z80* const z, uint16_t addr) {
-  return z->read_byte(z->userdata, addr);
+  return z->mem[addr];
 }
 
 static inline void wb(z80* const z, uint16_t addr, uint8_t val) {
-  z->write_byte(z->userdata, addr, val);
+  if (addr < z->wlimit) return;
+  if (addr < z->wwatch) z->watched = 1;
+  z->mem[addr] = val;
 }
 
 static inline uint16_t rw(z80* const z, uint16_t addr) {
-  return (z->read_byte(z->userdata, addr + 1) << 8) |
-         z->read_byte(z->userdata, addr);
+  return (uint16_t)((rb(z, (uint16_t)(addr + 1)) << 8) | rb(z, addr));
 }
 
 static inline void ww(z80* const z, uint16_t addr, uint16_t val) {
-  z->write_byte(z->userdata, addr, val & 0xFF);
-  z->write_byte(z->userdata, addr + 1, val >> 8);
+  wb(z, addr, val & 0xFF);
+  wb(z, (uint16_t)(addr + 1), val >> 8);
 }
 
 static inline void pushw(z80* const z, uint16_t val) {
@@ -150,13 +153,11 @@ static inline bool carry(int bit_no, uint16_t a, uint16_t b, bool cy) {
 }
 
 // returns the parity of byte: 0 if number of 1 bits in `val` is odd, else 1
-static inline bool parity(uint8_t val) {
-  uint8_t nb_one_bits = 0;
-  for (int i = 0; i < 8; i++) {
-    nb_one_bits += ((val >> i) & 1);
-  }
-
-  return (nb_one_bits & 1) == 0;
+static inline bool parity(uint8_t val) {   /* ZX47: folded, not a loop */
+  val ^= val >> 4;
+  val ^= val >> 2;
+  val ^= val >> 1;
+  return (val & 1) == 0;
 }
 
 static void exec_opcode(z80* const z, uint8_t opcode);
@@ -707,6 +708,10 @@ static inline void process_interrupts(z80* const z) {
 // initialises a z80 struct. Note that read_byte, write_byte, port_in, port_out
 // and userdata must be manually set by the user afterwards.
 void z80_init(z80* const z) {
+  z->mem = NULL;
+  z->wlimit = 0;
+  z->wwatch = 0;
+  z->watched = 0;
   z->read_byte = NULL;
   z->write_byte = NULL;
   z->port_in = NULL;

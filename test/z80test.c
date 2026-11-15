@@ -13,8 +13,6 @@ static int done, errors;
 static char out[1 << 16];
 static int nout;
 
-static uint8_t rb(void *u, uint16_t a) { (void)u; return mem[a]; }
-static void wb(void *u, uint16_t a, uint8_t v) { (void)u; mem[a] = v; }
 static uint8_t in(z80 *z, uint16_t p) {
   (void)p;
   if (z->c == 2) { putchar(z->e); out[nout++ & 0xFFFF] = (char)z->e; }
@@ -38,7 +36,7 @@ static int run(const char *file, unsigned long expect_cyc) {
   mem[5] = 0xDB; mem[6] = 0x00; mem[7] = 0xC9;
   z80 z;
   z80_init(&z);
-  z.read_byte = rb; z.write_byte = wb; z.port_in = in; z.port_out = out_;
+  z.mem = mem; z.port_in = in; z.port_out = out_;     /* wlimit 0: all memory writable */
   z.pc = 0x100;
   done = 0; nout = 0;
   printf("*** %s\n", file);

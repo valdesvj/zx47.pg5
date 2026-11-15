@@ -12,6 +12,12 @@ struct z80 {
   void (*port_out)(z80*, uint16_t, uint8_t);
   void* userdata;
 
+  /* ZX47: memory is read and written straight from mem (no call per byte); writes below wlimit are ignored
+     (the ROM); a write below wwatch sets watched (the Spectrum's screen). read_byte/write_byte are not used. */
+  uint8_t* mem;
+  uint16_t wlimit, wwatch;
+  uint8_t watched;
+
   unsigned long cyc; // cycle count (t-states)
 
   uint16_t pc, sp, ix, iy; // special purpose registers
@@ -21,14 +27,15 @@ struct z80 {
   uint8_t i, r; // interrupt vector, memory refresh
 
   // flags: sign, zero, yf, half-carry, xf, parity/overflow, negative, carry
-  bool sf : 1, zf : 1, yf : 1, hf : 1, xf : 1, pf : 1, nf : 1, cf : 1;
+  // ZX47: whole bytes, not bit-fields (a bit-field write is a read-modify-write on ARM)
+  bool sf, zf, yf, hf, xf, pf, nf, cf;
 
   uint8_t iff_delay;
   uint8_t interrupt_mode;
   uint8_t int_data;
-  bool iff1 : 1, iff2 : 1;
-  bool halted : 1;
-  bool int_pending : 1, nmi_pending : 1;
+  bool iff1, iff2;
+  bool halted;
+  bool int_pending, nmi_pending;
 };
 
 void z80_init(z80* const z);

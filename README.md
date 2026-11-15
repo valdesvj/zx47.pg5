@@ -11,7 +11,10 @@ FPS47 measured about 0.25 ms a line on the DM42n, so a sprite moving in a still 
 Gunfright) costs about 7 ms a frame and runs at the Spectrum's own 50 frames a second, even on battery. Games that
 redraw the whole screen drop to about 13–19 frames a second.
 
-**Version 0.1: tested on the PC (Z80 exercisers, the machine, the simulator); not yet on the calculator.**
+**Version 0.2.** First runs on the DM42n (0.1): 100% speed on USB power (160 MHz), 57% on battery (80 MHz).
+0.2 makes the Z80 about 1.5× faster (memory read directly, flags as bytes, parity folded: measured as Cortex-M33
+code under QEMU), skips drawing when the screen memory was not written, and lets the next frame run while the LCD
+takes the last lines.
 
 ## Install
 
@@ -61,7 +64,7 @@ once: enough for SHIFT + a key, or moving + fire. Many games let you choose thei
 | F5 RESET · F6 OFF | off keeps the Spectrum as it is: ON goes on where you were |
 | 1 picture | **colour**: in each 8×8 cell the darker colour is black, the lighter white (light drawings on black stay so, as on a TV); **ink**: every set pixel black |
 | 2 invert · 3 sound | sound: the beeper's tone each frame on the buzzer (rough, but it beeps) |
-| 4 joystick · 5 speed | the speed in % in the status line |
+| 4 joystick · 5 speed | the status line shows the speed (100% = the real Spectrum) and the ms a frame spent running the Z80 (**z**) and drawing (**s**); a frame has 20 ms |
 | 6 key test | shows the keys the calculator reports (for checking the keys on your DM42n) |
 
 The settings are kept in `/ZX47/ZX47.CFG`.
@@ -86,6 +89,7 @@ Requirements: `arm-none-eabi-gcc` with newlib, `make`, `python3` (Pillow for the
 cd ~/opt/zx47.pg5
 make              # -> build/ZX47.pg5
 make test         # the Z80 core (prelim, zexdoc) and the machine (boot, keys, tape, .SNA, .Z80)
+make bench        # how fast the machine runs on the PC (only the ratio between versions means something)
 make shots        # the PC simulator's screens -> build/sim/run/*.png
 make demo         # release/ZX47DEMO.TAP from test/demo.bas
 ```

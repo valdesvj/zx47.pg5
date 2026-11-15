@@ -14,8 +14,14 @@
 #include "zx.h"
 
 /* ------------------------------------------------------------------ memory and ports */
-static uint8_t rd(void *u, uint16_t a) { return ((Zx *)u)->mem[a]; }
-static void wr(void *u, uint16_t a, uint8_t v) { if (a >= 0x4000) ((Zx *)u)->mem[a] = v; }   /* the ROM stays */
+/* the Z80 core reads and writes x->mem itself (cpu.mem; the ROM below 0x4000 is not written; a write below
+   0x5B00 sets cpu.watched: the screen changed). These are for the tape and the snapshots. */
+static void wr(void *u, uint16_t a, uint8_t v) {
+  Zx *x = (Zx *)u;
+  if (a < 0x4000) return;
+  if (a < 0x5B00) x->cpu.watched = 1;
+  x->mem[a] = v;
+}
 
 static uint8_t pin(z80 *z, uint16_t port) {
   Zx *x = (Zx *)z->userdata;
@@ -48,8 +54,12 @@ int zx_init(Zx *x) {
 
 void zx_reset(Zx *x) {
   z80_init(&x->cpu);
-  x->cpu.read_byte = rd; x->cpu.write_byte = wr; x->cpu.port_in = pin; x->cpu.port_out = pout;
+  x->cpu.port_in = pin; x->cpu.port_out = pout;
   x->cpu.userdata = x;
+  x->cpu.mem = x->mem;
+  x->cpu.wlimit = 0x4000;                                   /* the ROM */
+  x->cpu.wwatch = 0x5B00;                                   /* the screen: pixels and attributes */
+  x->cpu.watched = 1;
   memcpy(x->mem, zx_rom48, 16384);
   memset(x->mem + 16384, 0, 49152);
   x->t = 0;
@@ -68,7 +78,7 @@ void zx_keys_clear(Zx *x) { memset(x->keys, 0, sizeof x->keys); x->kempston = 0;
 
 /* ------------------------------------------------------------------ the tape: LD-BYTES */
 static uint16_t pop16(z80 *z) {
-  uint16_t v = (uint16_t)(z->read_byte(z->userdata, z->sp) | (z->read_byte(z->userdata, (uint16_t)(z->sp + 1)) << 8));
+  uint16_t v = (uint16_t)(z->mem[z->sp] | z->mem[(uint16_t)(z->sp + 1)] << 8);
   z->sp = (uint16_t)(z->sp + 2);
   return v;
 }

@@ -73,28 +73,32 @@ static void cfg_load(void) {
 }
 
 /* ------------------------------------------------------------------ the frame around the picture */
-static char status_now[64];
+static char status_now[96];
+static int emu_ms, scr_ms;                          /* the last second: ms a frame (x10) running, drawing */
 
 static void status(int pct) {
-  char s[64];
-  if (cfg.speed) sprintf(s, "ZX47 %-5s %3d%%  %s", LAYER_NAME[cfg.layer], pct, loaded);
-  else sprintf(s, "ZX47  %-5s  %s", LAYER_NAME[cfg.layer], loaded);
+  char s[96];
+  if (cfg.speed) snprintf(s, sizeof s, "%s %d%% z%d.%d s%d.%d %.20s", LAYER_NAME[cfg.layer], pct, emu_ms / 10, emu_ms % 10,
+                         scr_ms / 10, scr_ms % 10, loaded);
+  else snprintf(s, sizeof s, "ZX47  %-5s  %.30s", LAYER_NAME[cfg.layer], loaded);
   if (cfg.layer == LAYER_JOY && !cfg.speed) sprintf(s + strlen(s), "  %s", JOY_NAME[cfg.joy]);
   if (!strcmp(s, status_now)) return;
   strcpy(status_now, s);
+  lcd_refresh_wait();                               /* the picture's last lines may still be going out */
   lcd_fill_rect(0, 0, LCD_X, SCR_Y - 1, 0);
   text(4, 2, s, 0);
   lcd_refresh_lines(0, SCR_Y - 1);
-  lcd_refresh_wait();
 }
 
 static void frame_ui(void) {                        /* the whole LCD: blank margins, status, hint */
+  lcd_refresh_wait();
   lcd_clear_buf();
   status_now[0] = 0;
   text(4, SCR_Y + SCR_H + 2, "EXIT menu   + ALPHA/NUM/JOY", 0);
   lcd_forced_refresh();
   lcd_refresh_wait();
   screen_invalidate();
+  X.cpu.watched = 1;
 }
 
 /* ------------------------------------------------------------------ files */
@@ -238,6 +242,7 @@ static void menu_draw(void) {
 
 /* returns 1 to go on, 0 to turn off */
 static int menu(void) {
+  lcd_refresh_wait();
   stop_buzzer();
   wait_release();
   msg[0] = 0;
@@ -282,6 +287,7 @@ static void sound(void) {
 
 /* ------------------------------------------------------------------ power, as the DMCP SDK's template */
 static void power_off(void) {                       /* the Spectrum keeps its state while off */
+  lcd_refresh_wait();
   stop_buzzer(); tone = 0;
   SET_ST(STAT_PGM_END);
   if (!ST(STAT_SUSPENDED)) {
@@ -317,6 +323,7 @@ void program_main(void) {
 
   uint32_t next = sys_current_ms(), last_auto = next, sec = next;
   int frames_sec = 0, pct = 100, skipped = 0, plus_was = 0;
+  uint32_t ms_emu = 0, ms_scr = 0;
   for (;;) {
     if (ST(STAT_PGM_END) || ST(STAT_SUSPENDED)) power_off();
     if (ST(STAT_POWER_CHANGE)) { switch_usb_powered_freq(); CLR_ST(STAT_POWER_CHANGE); }
@@ -343,19 +350,29 @@ void program_main(void) {
       if (++autotype >= (int)(sizeof LOAD_KEYS / sizeof *LOAD_KEYS) * 8) autotype = -1;
     } else keys_apply(&X, k1, k2, cfg.layer, cfg.joy);
 
+    uint32_t e0 = sys_current_ms();
     zx_frame(&X);
+    ms_emu += sys_current_ms() - e0;
     sound();
 
     uint32_t now = sys_current_ms();
     int late = (int32_t)(now - next) > FRAME_MS;    /* behind: draw only every other frame (up to 3 skipped) */
-    if (!late || skipped >= 3) { screen_render(&X, cfg.mode, cfg.invert); skipped = 0; }
-    else skipped++;
+    int need = X.cpu.watched || (X.frames & 15) == 0;   /* the screen was written, or FLASH changes */
+    if (need && (!late || skipped >= 3)) {
+      uint32_t r0 = sys_current_ms();
+      X.cpu.watched = 0;
+      screen_render(&X, cfg.mode, cfg.invert);
+      ms_scr += sys_current_ms() - r0;
+      skipped = 0;
+    } else if (need) skipped++;
     frames_sec++;
 
     now = sys_current_ms();
     if (now - sec >= 1000) {
       pct = (int)(frames_sec * 100000u / ((now - sec) * 50u));
-      frames_sec = 0; sec = now;
+      emu_ms = frames_sec ? (int)(ms_emu * 10 / (uint32_t)frames_sec) : 0;   /* tenths of a ms a frame */
+      scr_ms = frames_sec ? (int)(ms_scr * 10 / (uint32_t)frames_sec) : 0;
+      frames_sec = 0; sec = now; ms_emu = ms_scr = 0;
     }
     status(pct);
     if (now - last_auto > 10000) { reset_auto_off(); last_auto = now; }

@@ -1,0 +1,21 @@
+ZX47 - a 48K ZX Spectrum for the SwissMicros DM42n
+Copyright (C) 2026 Victor Valdes <valdes.vj@gmail.com>
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later
+version. See LICENSE.
+
+Exceptions and third-party material:
+  - third_party/z80/: superzazu/z80 by Nicolas Allemand, MIT (third_party/z80/LICENSE); changed for the Spectrum
+    (16-bit ports, OUTI/OUTD order, no stdio).
+  - test/zex/: the Z80 instruction exercisers (prelim, zexdoc, zexall) by Frank D. Cringle and others, as shipped
+    with superzazu/z80, for the PC tests only.
+  - roms/48.rom: the ZX Spectrum 48K ROM, (C) Amstrad, distributed with their permission (roms/README.md).
+  - dmcp/, stm32_program.ld: SwissMicros DMCP5 SDK, BSD 3-Clause (LICENSE.DMCP5_SDK), released "NOMAS".
+  - tools/pg5tool.py, test/sim: from Chess 47, TERM47 and GB47 (same author, GPL v3).
+
+Written with the help of AI (Claude by Anthropic). I reviewed and checked the results and take full responsibility
+for this project, its correctness and any mistakes in it.
+
+SwissMicros and DM42 are trademarks of their owners. ZX Spectrum is a trademark of Sky. This project is not
+affiliated with or endorsed by them and includes no commercial games.

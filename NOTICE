@@ -12,10 +12,12 @@ Exceptions and third-party material:
     with superzazu/z80, for the PC tests only.
   - roms/48.rom: the ZX Spectrum 48K ROM, (C) Amstrad, distributed with their permission (roms/README.md).
   - dmcp/, stm32_program.ld: SwissMicros DMCP5 SDK, BSD 3-Clause (LICENSE.DMCP5_SDK), released "NOMAS".
-  - tools/pg5tool.py, test/sim: from Chess 47, TERM47 and GB47 (same author, GPL v3).
+  - tools/pg5tool.py, test/sim: from Chess 47, TERM47 and GB47 (same author, GPL-3.0-or-later).
 
-Written with the help of AI (Claude by Anthropic). I reviewed and checked the results and take full responsibility
-for this project, its correctness and any mistakes in it.
+Written with the help of AI, as a cooperation (see AI_ASSISTANCE.md). I reviewed all output, validated the
+results and take full responsibility for the work and any mistakes.
+
+Please don't contact SwissMicros about this program.
 
 SwissMicros and DM42 are trademarks of their owners. ZX Spectrum is a trademark of Sky. This project is not
 affiliated with or endorsed by them and includes no commercial games.

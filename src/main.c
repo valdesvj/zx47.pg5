@@ -230,6 +230,53 @@ static void keytest(void) {
   key_pop_all();
 }
 
+/* ------------------------------------------------------------------ About, and DMCP's setup menu (as Chess 47) */
+static void about(void) {
+  char s[64];
+  lcd_clear_buf();
+  bar("ZX47 v" PROGRAM_VERSION "   a 48K ZX Spectrum for the DM42n");
+  int y = 26;
+  static const char *L[] = {
+    "(C) 2026 Victor Valdes - GPL-3.0-or-later",
+    "Z80 core: superzazu/z80 (MIT)",
+    "48K ROM (C) Amstrad, with their permission",
+    "DMCP5 SDK (BSD-3, NOMAS)",
+  };
+  for (unsigned i = 0; i < sizeof L / sizeof *L; i++) { text(4, y, L[i], 0); y += 21; }
+  y += 4;
+  sprintf(s, "Free heap: %d KB  (largest %d KB)", sys_free_mem() / 1024, sys_largest_free_mem() / 1024);
+  text(4, y, s, 0); y += 21;
+  sprintf(s, "CPU: %s   LCD: %s", usb_powered() ? "160 MHz (USB)" : "80 MHz (battery)",
+          screen_fast() ? "fast" : "slow path");
+  text(4, y, s, 0); y += 21;
+  text(4, y + 4, "Written with the help of AI (see README)", 0);
+  lcd_refresh();
+  lcd_refresh_wait();
+  wait_release();
+  for (;;) {
+    if (key_empty()) { sys_timer_start(0, 500); CLR_ST(STAT_RUNNING); sys_sleep(); }
+    if (ST(STAT_PGM_END) || ST(STAT_SUSPENDED)) return;
+    int k = key_pop();
+    if (k == KEY_EXIT || k == KEY_ENTER) break;
+  }
+  wait_release();
+}
+
+#define MI_ZX47_ABOUT 1
+static const uint8_t setup_items[] = {
+  MI_SET_TIME, MI_SET_DATE, MI_BEEP_MUTE, MI_SLOW_AUTOREP, MI_MSC, MI_SYSTEM_ENTER, MI_ZX47_ABOUT, 0 };
+static const smenu_t SETUP_MENU = { "ZX47 Setup", setup_items, NULL, NULL };
+
+static int run_menu_item(uint8_t id) {
+  if (id == MI_ZX47_ABOUT) { about(); return 0; }
+  return MRET_UNIMPL;
+}
+
+static const char *menu_line_str(uint8_t id, char *s, const int slen) {
+  (void)s; (void)slen;
+  return id == MI_ZX47_ABOUT ? "About ZX47 >" : NULL;
+}
+
 static void menu_draw(void) {
   char s[64];
   lcd_clear_buf();
@@ -242,7 +289,7 @@ static void menu_draw(void) {
   sprintf(l[2], "3 sound: %s", cfg.sound ? "on" : "off");
   sprintf(l[3], "4 joystick: %s", JOY_NAME[cfg.joy]);
   sprintf(l[4], "5 speed shown: %s", cfg.speed ? "on" : "off");
-  sprintf(l[5], "6 key test");
+  sprintf(l[5], "6 key test  7 setup (USB disk)  8 about");
   for (int i = 0; i < 6; i++) L[i] = l[i];
   text(4, 26, "Files in " DIR ":  F1 .Z80  F2 .SNA  F3 .TAP", 0);
   for (int i = 0; i < 6; i++) text(4, 50 + i * 21, L[i], 0);
@@ -280,6 +327,8 @@ static int menu(void) {
     case KEY_4: cfg.joy = (cfg.joy + 1) % JOY_CNT; break;
     case KEY_5: cfg.speed ^= 1; break;
     case KEY_6: keytest(); break;
+    case KEY_7: wait_release(); handle_menu(&SETUP_MENU, MENU_RESET, 0); wait_release(); break;
+    case KEY_8: about(); break;
     default: continue;
     }
     menu_draw();
@@ -340,6 +389,8 @@ void program_main(void) {
     lcd_refresh();
     for (;;) wait_for_key_press();
   }
+  run_menu_item_app = run_menu_item;
+  menu_line_str_app = menu_line_str;
   cfg_load();
   frame_ui();
   if (s) { strcpy(msg, "LCD layout not learnt: slow drawing"); }
